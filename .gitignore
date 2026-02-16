@@ -1,1 +1,18 @@
+# IDE
 /.metadata/
+*.iml
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Maven build output
+target/
+!.mvn/wrapper/maven-wrapper.jar
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
