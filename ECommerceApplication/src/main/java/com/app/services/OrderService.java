@@ -2,12 +2,16 @@ package com.app.services;
 
 import java.util.List;
 
+import com.app.payloads.CreditCardPaymentRequest;
 import com.app.payloads.OrderDTO;
 import com.app.payloads.OrderResponse;
 
 public interface OrderService {
 	
 	OrderDTO placeOrder(String email, Long cartId, String paymentMethod);
+
+	// === VAR-3: Credit Card Payment ===
+	OrderDTO placeOrderWithCreditCard(String email, Long cartId, CreditCardPaymentRequest creditCardRequest);
 	
 	OrderDTO getOrder(String email, Long orderId);
 	

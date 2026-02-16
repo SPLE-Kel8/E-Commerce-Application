@@ -21,4 +21,9 @@ public class OrderDTO {
 	private Double totalAmount;
 	private String orderStatus;
 
+	// === VAR-3: Store Discount ===
+	private StoreDiscountDTO storeDiscount;
+	private Double storeDiscountAmount;
+	private Double finalAmount;
+
 }

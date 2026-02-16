@@ -19,8 +19,10 @@ import com.app.entites.Order;
 import com.app.entites.OrderItem;
 import com.app.entites.Payment;
 import com.app.entites.Product;
+import com.app.entites.StoreDiscount;
 import com.app.exceptions.APIException;
 import com.app.exceptions.ResourceNotFoundException;
+import com.app.payloads.CreditCardPaymentRequest;
 import com.app.payloads.OrderDTO;
 import com.app.payloads.OrderItemDTO;
 import com.app.payloads.OrderResponse;
@@ -29,6 +31,7 @@ import com.app.repositories.CartRepo;
 import com.app.repositories.OrderItemRepo;
 import com.app.repositories.OrderRepo;
 import com.app.repositories.PaymentRepo;
+import com.app.repositories.StoreDiscountRepo;
 import com.app.repositories.UserRepo;
 
 import jakarta.transaction.Transactional;
@@ -48,6 +51,10 @@ public class OrderServiceImpl implements OrderService {
 
 	@Autowired
 	private PaymentRepo paymentRepo;
+
+	// === VAR-3: Store Discount ===
+	@Autowired
+	private StoreDiscountRepo storeDiscountRepo;
 
 	@Autowired
 	public OrderItemRepo orderItemRepo;
@@ -89,6 +96,9 @@ public class OrderServiceImpl implements OrderService {
 
 		order.setPayment(payment);
 
+		// === VAR-3: Store Discount - auto-apply best discount ===
+		applyStoreDiscount(order);
+
 		Order savedOrder = orderRepo.save(order);
 
 		List<CartItem> cartItems = cart.getCartItems();
@@ -128,6 +138,101 @@ public class OrderServiceImpl implements OrderService {
 		orderItems.forEach(item -> orderDTO.getOrderItems().add(modelMapper.map(item, OrderItemDTO.class)));
 
 		return orderDTO;
+	}
+
+	// === VAR-3: Credit Card Payment ===
+	@Override
+	public OrderDTO placeOrderWithCreditCard(String email, Long cartId, CreditCardPaymentRequest creditCardRequest) {
+
+		Cart cart = cartRepo.findCartByEmailAndCartId(email, cartId);
+
+		if (cart == null) {
+			throw new ResourceNotFoundException("Cart", "cartId", cartId);
+		}
+
+		Order order = new Order();
+
+		order.setEmail(email);
+		order.setOrderDate(LocalDate.now());
+
+		order.setTotalAmount(cart.getTotalPrice());
+		order.setOrderStatus("Order Accepted !");
+
+		// Create payment with credit card details
+		Payment payment = new Payment();
+		payment.setOrder(order);
+		payment.setPaymentMethod("Credit Card");
+
+		// Mask card number: only store last 4 digits
+		String cardNumber = creditCardRequest.getCardNumber();
+		payment.setMaskedCardNumber("**** **** **** " + cardNumber.substring(12));
+		payment.setCardExpiry(creditCardRequest.getCardExpiry());
+
+		payment = paymentRepo.save(payment);
+
+		order.setPayment(payment);
+
+		// === VAR-3: Store Discount - auto-apply best discount ===
+		applyStoreDiscount(order);
+
+		Order savedOrder = orderRepo.save(order);
+
+		List<CartItem> cartItems = cart.getCartItems();
+
+		if (cartItems.size() == 0) {
+			throw new APIException("Cart is empty");
+		}
+
+		List<OrderItem> orderItems = new ArrayList<>();
+
+		for (CartItem cartItem : cartItems) {
+			OrderItem orderItem = new OrderItem();
+
+			orderItem.setProduct(cartItem.getProduct());
+			orderItem.setQuantity(cartItem.getQuantity());
+			orderItem.setDiscount(cartItem.getDiscount());
+			orderItem.setOrderedProductPrice(cartItem.getProductPrice());
+			orderItem.setOrder(savedOrder);
+
+			orderItems.add(orderItem);
+		}
+
+		orderItems = orderItemRepo.saveAll(orderItems);
+
+		cart.getCartItems().forEach(item -> {
+			int quantity = item.getQuantity();
+
+			Product product = item.getProduct();
+
+			cartService.deleteProductFromCart(cartId, item.getProduct().getProductId());
+
+			product.setQuantity(product.getQuantity() - quantity);
+		});
+
+		OrderDTO orderDTO = modelMapper.map(savedOrder, OrderDTO.class);
+
+		orderItems.forEach(item -> orderDTO.getOrderItems().add(modelMapper.map(item, OrderItemDTO.class)));
+
+		return orderDTO;
+	}
+
+	// === VAR-3: Store Discount - helper method ===
+	private void applyStoreDiscount(Order order) {
+		List<StoreDiscount> applicableDiscounts = storeDiscountRepo
+				.findApplicableDiscounts(LocalDate.now(), order.getTotalAmount());
+
+		if (!applicableDiscounts.isEmpty()) {
+			// Apply the best (highest percentage) discount
+			StoreDiscount bestDiscount = applicableDiscounts.get(0);
+			Double discountAmount = order.getTotalAmount() * bestDiscount.getDiscountPercentage() / 100;
+
+			order.setStoreDiscount(bestDiscount);
+			order.setStoreDiscountAmount(discountAmount);
+			order.setFinalAmount(order.getTotalAmount() - discountAmount);
+		} else {
+			order.setStoreDiscountAmount(0.0);
+			order.setFinalAmount(order.getTotalAmount());
+		}
 	}
 
 	@Override

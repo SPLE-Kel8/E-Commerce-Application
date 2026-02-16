@@ -14,10 +14,12 @@ import com.app.entites.Cart;
 import com.app.entites.Category;
 import com.app.entites.Product;
 import com.app.entites.Role;
+import com.app.entites.StoreDiscount;
 import com.app.entites.User;
 import com.app.repositories.CategoryRepo;
 import com.app.repositories.ProductRepo;
 import com.app.repositories.RoleRepo;
+import com.app.repositories.StoreDiscountRepo;
 import com.app.repositories.UserRepo;
 
 @Component
@@ -34,6 +36,10 @@ public class DataSeeder {
 
 	@Autowired
 	private ProductRepo productRepo;
+
+	// === VAR-3: Store Discount ===
+	@Autowired
+	private StoreDiscountRepo storeDiscountRepo;
 
 	@Autowired
 	private PasswordEncoder passwordEncoder;
@@ -179,6 +185,38 @@ public class DataSeeder {
 
 			List<Product> savedProducts = productRepo.saveAll(products);
 			savedProducts.forEach(p -> System.out.println("Product seeded: " + p.getProductName()));
+		}
+
+		// ===== 6. Seed Store Discounts (VAR-3) =====
+		if (storeDiscountRepo.count() == 0) {
+			StoreDiscount newYearSale = new StoreDiscount();
+			newYearSale.setDiscountName("New Year Sale");
+			newYearSale.setDiscountPercentage(10.0);
+			newYearSale.setMinOrderAmount(500000.0);
+			newYearSale.setActive(true);
+			newYearSale.setStartDate(java.time.LocalDate.now());
+			newYearSale.setEndDate(java.time.LocalDate.now().plusMonths(3));
+
+			StoreDiscount megaSale = new StoreDiscount();
+			megaSale.setDiscountName("Mega Sale");
+			megaSale.setDiscountPercentage(15.0);
+			megaSale.setMinOrderAmount(1000000.0);
+			megaSale.setActive(true);
+			megaSale.setStartDate(java.time.LocalDate.now());
+			megaSale.setEndDate(java.time.LocalDate.now().plusMonths(1));
+
+			StoreDiscount flashDeal = new StoreDiscount();
+			flashDeal.setDiscountName("Flash Deal");
+			flashDeal.setDiscountPercentage(5.0);
+			flashDeal.setMinOrderAmount(100000.0);
+			flashDeal.setActive(true);
+			flashDeal.setStartDate(java.time.LocalDate.now());
+			flashDeal.setEndDate(java.time.LocalDate.now().plusWeeks(2));
+
+			List<StoreDiscount> savedDiscounts = storeDiscountRepo
+					.saveAll(List.of(newYearSale, megaSale, flashDeal));
+			savedDiscounts.forEach(
+					d -> System.out.println("Store discount seeded: " + d.getDiscountName() + " (" + d.getDiscountPercentage() + "%)"));
 		}
 
 		System.out.println("========================================");

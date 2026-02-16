@@ -1,4 +1,0 @@
- product_id | description | discount | image | price | product_name | quantity | special_price | category_id 
-------------+-------------+----------+-------+-------+--------------+----------+---------------+-------------
-(0 rows)
-

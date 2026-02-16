@@ -11,6 +11,7 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
@@ -45,4 +46,13 @@ public class Order {
 	
 	private Double totalAmount;
 	private String orderStatus;
+
+	// === VAR-3: Store Discount ===
+	@ManyToOne
+	@JoinColumn(name = "store_discount_id")
+	private StoreDiscount storeDiscount;
+
+	private Double storeDiscountAmount = 0.0; // the actual discount amount deducted
+
+	private Double finalAmount; // totalAmount - storeDiscountAmount
 }
