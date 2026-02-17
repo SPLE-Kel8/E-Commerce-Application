@@ -14,12 +14,21 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.app.config.AppConstants;
+import com.app.config.FeatureConfig;
+import com.app.exceptions.APIException;
 import com.app.payloads.OrderDTO;
 import com.app.payloads.OrderResponse;
 import com.app.services.OrderService;
 
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 
+/**
+ * Order Controller - handles order placement and management.
+ * 
+ * Clone-and-Own Notes:
+ * - Payment methods are configured via FeatureConfig (application.properties)
+ * - To add new payment methods, update FeatureConfig and application.properties
+ */
 @RestController
 @RequestMapping("/api")
 @SecurityRequirement(name = "E-Commerce Application")
@@ -28,8 +37,24 @@ public class OrderController {
 	@Autowired
 	public OrderService orderService;
 	
+	@Autowired
+	private FeatureConfig featureConfig;
+	
+	/**
+	 * Place an order with payment method validation.
+	 * Currently supports: BANK_TRANSFER (configurable via application.properties)
+	 */
 	@PostMapping("/public/users/{email}/carts/{cartId}/payments/{paymentMethod}/order")
-	public ResponseEntity<OrderDTO> orderProducts(@PathVariable String email, @PathVariable Long cartId, @PathVariable String paymentMethod) {
+	public ResponseEntity<OrderDTO> orderProducts(
+			@PathVariable String email, 
+			@PathVariable Long cartId, 
+			@PathVariable String paymentMethod) {
+		
+		// Validate payment method using FeatureConfig (Clone-and-Own configurable)
+		if (!featureConfig.isPaymentMethodEnabled(paymentMethod)) {
+			throw new APIException(featureConfig.getSupportedPaymentMethodsMessage());
+		}
+		
 		OrderDTO order = orderService.placeOrder(email, cartId, paymentMethod);
 		
 		return new ResponseEntity<OrderDTO>(order, HttpStatus.CREATED);

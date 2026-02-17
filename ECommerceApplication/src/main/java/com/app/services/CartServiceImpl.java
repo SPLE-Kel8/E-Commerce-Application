@@ -10,6 +10,7 @@ import org.springframework.stereotype.Service;
 import com.app.entites.Cart;
 import com.app.entites.CartItem;
 import com.app.entites.Product;
+import com.app.entites.PromoCode;
 import com.app.exceptions.APIException;
 import com.app.exceptions.ResourceNotFoundException;
 import com.app.payloads.CartDTO;
@@ -17,6 +18,7 @@ import com.app.payloads.ProductDTO;
 import com.app.repositories.CartItemRepo;
 import com.app.repositories.CartRepo;
 import com.app.repositories.ProductRepo;
+import com.app.repositories.PromoCodeRepo;
 
 import jakarta.transaction.Transactional;
 
@@ -32,6 +34,12 @@ public class CartServiceImpl implements CartService {
 
 	@Autowired
 	private CartItemRepo cartItemRepo;
+
+	@Autowired
+	private PromoCodeRepo promoCodeRepo;
+
+	@Autowired
+	private PromoCodeService promoCodeService;
 
 	@Autowired
 	private ModelMapper modelMapper;
@@ -213,7 +221,83 @@ public class CartServiceImpl implements CartService {
 
 		cartItemRepo.deleteCartItemByProductIdAndCartId(cartId, productId);
 
+		// Recalculate discount if promo code is applied
+		recalculateCartDiscount(cart);
+
 		return "Product " + cartItem.getProduct().getProductName() + " removed from the cart !!!";
+	}
+
+	@Override
+	public CartDTO applyPromoCode(Long cartId, String promoCode) {
+		Cart cart = cartRepo.findById(cartId)
+				.orElseThrow(() -> new ResourceNotFoundException("Cart", "cartId", cartId));
+
+		// Validate the promo code
+		promoCodeService.validatePromoCode(promoCode, cart.getTotalPrice());
+
+		PromoCode promo = promoCodeRepo.findByCode(promoCode)
+				.orElseThrow(() -> new APIException("Invalid promo code: " + promoCode));
+
+		// Apply the promo code
+		cart.setAppliedPromoCode(promo);
+		Double discountAmount = promoCodeService.calculateDiscount(promoCode, cart.getTotalPrice());
+		cart.setDiscountAmount(discountAmount);
+		cart.setFinalPrice(cart.getTotalPrice() - discountAmount);
+
+		Cart savedCart = cartRepo.save(cart);
+
+		return mapCartToDTO(savedCart);
+	}
+
+	@Override
+	public CartDTO removePromoCode(Long cartId) {
+		Cart cart = cartRepo.findById(cartId)
+				.orElseThrow(() -> new ResourceNotFoundException("Cart", "cartId", cartId));
+
+		cart.setAppliedPromoCode(null);
+		cart.setDiscountAmount(0.0);
+		cart.setFinalPrice(cart.getTotalPrice());
+
+		Cart savedCart = cartRepo.save(cart);
+
+		return mapCartToDTO(savedCart);
+	}
+
+	private void recalculateCartDiscount(Cart cart) {
+		if (cart.getAppliedPromoCode() != null) {
+			try {
+				Double discountAmount = promoCodeService.calculateDiscount(
+						cart.getAppliedPromoCode().getCode(), cart.getTotalPrice());
+				cart.setDiscountAmount(discountAmount);
+				cart.setFinalPrice(cart.getTotalPrice() - discountAmount);
+			} catch (APIException e) {
+				// If promo code is no longer valid, remove it
+				cart.setAppliedPromoCode(null);
+				cart.setDiscountAmount(0.0);
+				cart.setFinalPrice(cart.getTotalPrice());
+			}
+		} else {
+			cart.setFinalPrice(cart.getTotalPrice());
+		}
+		cartRepo.save(cart);
+	}
+
+	private CartDTO mapCartToDTO(Cart cart) {
+		CartDTO cartDTO = modelMapper.map(cart, CartDTO.class);
+		
+		List<ProductDTO> products = cart.getCartItems().stream()
+				.map(p -> modelMapper.map(p.getProduct(), ProductDTO.class)).collect(Collectors.toList());
+		
+		cartDTO.setProducts(products);
+		
+		if (cart.getAppliedPromoCode() != null) {
+			cartDTO.setAppliedPromoCode(cart.getAppliedPromoCode().getCode());
+		}
+		
+		cartDTO.setDiscountAmount(cart.getDiscountAmount() != null ? cart.getDiscountAmount() : 0.0);
+		cartDTO.setFinalPrice(cart.getFinalPrice() != null ? cart.getFinalPrice() : cart.getTotalPrice());
+		
+		return cartDTO;
 	}
 
 }

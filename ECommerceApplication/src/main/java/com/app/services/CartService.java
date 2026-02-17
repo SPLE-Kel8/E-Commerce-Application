@@ -18,4 +18,8 @@ public interface CartService {
 	
 	String deleteProductFromCart(Long cartId, Long productId);
 	
+	CartDTO applyPromoCode(Long cartId, String promoCode);
+	
+	CartDTO removePromoCode(Long cartId);
+	
 }

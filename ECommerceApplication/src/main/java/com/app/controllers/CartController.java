@@ -13,11 +13,20 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.app.config.FeatureConfig;
+import com.app.exceptions.APIException;
 import com.app.payloads.CartDTO;
 import com.app.services.CartService;
 
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 
+/**
+ * Cart Controller - manages shopping cart operations.
+ * 
+ * Clone-and-Own Notes:
+ * - Promo code functionality can be disabled via app.feature.promo-code.enabled=false
+ * - Cart operations remain available regardless of promo code feature status
+ */
 @RestController
 @RequestMapping("/api")
 @SecurityRequirement(name = "E-Commerce Application")
@@ -25,6 +34,9 @@ public class CartController {
 	
 	@Autowired
 	private CartService cartService;
+
+	@Autowired
+	private FeatureConfig featureConfig;
 
 	@PostMapping("/public/carts/{cartId}/products/{productId}/quantity/{quantity}")
 	public ResponseEntity<CartDTO> addProductToCart(@PathVariable Long cartId, @PathVariable Long productId, @PathVariable Integer quantity) {
@@ -60,5 +72,33 @@ public class CartController {
 		String status = cartService.deleteProductFromCart(cartId, productId);
 		
 		return new ResponseEntity<String>(status, HttpStatus.OK);
+	}
+
+	/**
+	 * Apply a promo code to cart.
+	 * Feature can be disabled via app.feature.promo-code.enabled=false
+	 */
+	@PostMapping("/public/carts/{cartId}/promo/{promoCode}")
+	public ResponseEntity<CartDTO> applyPromoCode(@PathVariable Long cartId, @PathVariable String promoCode) {
+		if (!featureConfig.isPromoCodeEnabled()) {
+			throw new APIException("Promo code feature is not enabled for this store");
+		}
+		CartDTO cartDTO = cartService.applyPromoCode(cartId, promoCode);
+		
+		return new ResponseEntity<CartDTO>(cartDTO, HttpStatus.OK);
+	}
+
+	/**
+	 * Remove promo code from cart.
+	 * Feature can be disabled via app.feature.promo-code.enabled=false
+	 */
+	@DeleteMapping("/public/carts/{cartId}/promo")
+	public ResponseEntity<CartDTO> removePromoCode(@PathVariable Long cartId) {
+		if (!featureConfig.isPromoCodeEnabled()) {
+			throw new APIException("Promo code feature is not enabled for this store");
+		}
+		CartDTO cartDTO = cartService.removePromoCode(cartId);
+		
+		return new ResponseEntity<CartDTO>(cartDTO, HttpStatus.OK);
 	}
 }

@@ -13,6 +13,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
+import com.app.config.AppConstants;
 import com.app.entites.Cart;
 import com.app.entites.CartItem;
 import com.app.entites.Order;
@@ -29,6 +30,7 @@ import com.app.repositories.CartRepo;
 import com.app.repositories.OrderItemRepo;
 import com.app.repositories.OrderRepo;
 import com.app.repositories.PaymentRepo;
+import com.app.repositories.PromoCodeRepo;
 import com.app.repositories.UserRepo;
 
 import jakarta.transaction.Transactional;
@@ -48,6 +50,9 @@ public class OrderServiceImpl implements OrderService {
 
 	@Autowired
 	private PaymentRepo paymentRepo;
+
+	@Autowired
+	private PromoCodeRepo promoCodeRepo;
 
 	@Autowired
 	public OrderItemRepo orderItemRepo;
@@ -78,8 +83,18 @@ public class OrderServiceImpl implements OrderService {
 		order.setEmail(email);
 		order.setOrderDate(LocalDate.now());
 
-		order.setTotalAmount(cart.getTotalPrice());
-		order.setOrderStatus("Order Accepted !");
+		// Use finalPrice which includes any promo code discounts
+		Double finalAmount = cart.getFinalPrice() != null && cart.getFinalPrice() > 0 
+				? cart.getFinalPrice() 
+				: cart.getTotalPrice();
+		order.setTotalAmount(finalAmount);
+		order.setOrderStatus(AppConstants.ORDER_STATUS_ACCEPTED);
+		
+		// Set promo code info if applied
+		if (cart.getAppliedPromoCode() != null) {
+			order.setAppliedPromoCode(cart.getAppliedPromoCode().getCode());
+			order.setDiscountAmount(cart.getDiscountAmount() != null ? cart.getDiscountAmount() : 0.0);
+		}
 
 		Payment payment = new Payment();
 		payment.setOrder(order);
@@ -113,6 +128,12 @@ public class OrderServiceImpl implements OrderService {
 
 		orderItems = orderItemRepo.saveAll(orderItems);
 
+		// Update promo code usage count if applied
+		if (cart.getAppliedPromoCode() != null) {
+			cart.getAppliedPromoCode().setUsedCount(cart.getAppliedPromoCode().getUsedCount() + 1);
+			promoCodeRepo.save(cart.getAppliedPromoCode());
+		}
+
 		cart.getCartItems().forEach(item -> {
 			int quantity = item.getQuantity();
 
@@ -122,6 +143,11 @@ public class OrderServiceImpl implements OrderService {
 
 			product.setQuantity(product.getQuantity() - quantity);
 		});
+
+		// Reset cart promo code after order is placed
+		cart.setAppliedPromoCode(null);
+		cart.setDiscountAmount(0.0);
+		cart.setFinalPrice(0.0);
 
 		OrderDTO orderDTO = modelMapper.map(savedOrder, OrderDTO.class);
 		

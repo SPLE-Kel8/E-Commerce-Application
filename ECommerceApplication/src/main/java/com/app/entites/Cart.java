@@ -9,6 +9,7 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
@@ -35,4 +36,12 @@ public class Cart {
 	private List<CartItem> cartItems = new ArrayList<>();
 
 	private Double totalPrice = 0.0;
+
+	@ManyToOne
+	@JoinColumn(name = "promo_code_id")
+	private PromoCode appliedPromoCode;
+
+	private Double discountAmount = 0.0;
+
+	private Double finalPrice = 0.0;
 }
