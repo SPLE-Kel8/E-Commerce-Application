@@ -78,12 +78,16 @@ public class FeatureConfig {
             return false;
         }
         
-        return switch (paymentMethod.toUpperCase()) {
-            case "BANK_TRANSFER" -> bankTransferEnabled;
-            case "CREDIT_CARD" -> creditCardEnabled;
-            case "E_WALLET" -> eWalletEnabled;
-            default -> false;
-        };
+        switch (paymentMethod.toUpperCase()) {
+            case "BANK_TRANSFER":
+                return bankTransferEnabled;
+            case "CREDIT_CARD":
+                return creditCardEnabled;
+            case "E_WALLET":
+                return eWalletEnabled;
+            default:
+                return false;
+        }
     }
 
     /**

@@ -46,11 +46,14 @@ public class ECommerceApplication implements CommandLineRunner {
 
 			List<Role> roles = List.of(adminRole, userRole);
 
-			List<Role> savedRoles = roleRepo.saveAll(roles);
-
-			savedRoles.forEach(System.out::println);
+			// Check if roles already exist before saving
+			if (roleRepo.findById(AppConstants.ADMIN_ID).isEmpty()) {
+				List<Role> savedRoles = roleRepo.saveAll(roles);
+				savedRoles.forEach(System.out::println);
+			}
 
 		} catch (Exception e) {
+			System.err.println("Error initializing roles: " + e.getMessage());
 			e.printStackTrace();
 		}
 	}
