@@ -65,7 +65,7 @@ public class OrderServiceImpl implements OrderService {
 	public ModelMapper modelMapper;
 
 	@Override
-	public OrderDTO placeOrder(String email, Long cartId, String paymentMethod) {
+	public OrderDTO placeOrder(String email, Long cartId, String paymentMethod, String membershipCode, String codAddress) {
 
 		Cart cart = cartRepo.findCartByEmailAndCartId(email, cartId);
 
@@ -73,17 +73,48 @@ public class OrderServiceImpl implements OrderService {
 			throw new ResourceNotFoundException("Cart", "cartId", cartId);
 		}
 
+		// handle diskon member 
+		if (membershipCode != null && !membershipCode.isEmpty()) {
+			com.app.entites.User user = userRepo.findByEmail(email)
+				.orElseThrow(() -> new ResourceNotFoundException("User", "email", email));
+			if (!membershipCode.equals(user.getMembershipCode())) {
+				throw new APIException("Invalid membership code");
+			}
+		}
+
+		// handle cod
+		if ("cashondelivery".equalsIgnoreCase(paymentMethod) || "COD".equalsIgnoreCase(paymentMethod)) {
+			if (codAddress == null || codAddress.isEmpty()) {
+				throw new APIException("COD address is required for Cash on Delivery");
+			}
+		}
+
 		Order order = new Order();
 
 		order.setEmail(email);
 		order.setOrderDate(LocalDate.now());
 
-		order.setTotalAmount(cart.getTotalPrice());
+		// apply diskon jika diskon member 
+		if (membershipCode != null && !membershipCode.isEmpty()) {
+			order.setTotalAmount(cart.getTotalPrice() * 0.9);
+		} else {
+			order.setTotalAmount(cart.getTotalPrice());
+		}
+
 		order.setOrderStatus("Order Accepted !");
+
+		// set address jika cod
+		if ("cashondelivery".equalsIgnoreCase(paymentMethod) || "COD".equalsIgnoreCase(paymentMethod)) {
+			order.setCodAddress(codAddress);
+		}
 
 		Payment payment = new Payment();
 		payment.setOrder(order);
-		payment.setPaymentMethod(paymentMethod);
+		if ("cashondelivery".equalsIgnoreCase(paymentMethod) || "COD".equalsIgnoreCase(paymentMethod)) {
+			payment.setPaymentMethod("cashondelivery");
+		} else {
+			payment.setPaymentMethod(paymentMethod);
+		}
 
 		payment = paymentRepo.save(payment);
 

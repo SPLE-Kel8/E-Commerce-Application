@@ -23,4 +23,5 @@ public class UserDTO {
 	private Set<Role> roles = new HashSet<>();
 	private AddressDTO address;
 	private CartDTO cart;
+	private String membershipCode;
 }

@@ -1,6 +1,7 @@
 package com.app.services;
 
 import java.util.List;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 import org.modelmapper.ModelMapper;
@@ -59,6 +60,10 @@ public class UserServiceImpl implements UserService {
 
 		try {
 			User user = modelMapper.map(userDTO, User.class);
+
+			// buat membership code on register
+			String membershipCode = UUID.randomUUID().toString().substring(0, 8).toUpperCase();
+			user.setMembershipCode(membershipCode);
 
 			Cart cart = new Cart();
 			user.setCart(cart);
