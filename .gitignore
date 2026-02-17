@@ -1,6 +1,7 @@
 /.metadata/
 .env
 .vscode/
+.project
 
 ### IntelliJ IDEA ###
 .idea
