@@ -80,7 +80,15 @@ public class CartServiceImpl implements CartService {
 
 		product.setQuantity(product.getQuantity() - quantity);
 
+		// Update totalPrice (with product discount)
 		cart.setTotalPrice(cart.getTotalPrice() + (product.getSpecialPrice() * quantity));
+		
+		// Update originalTotalPrice (without product discount) - for promo code calculation (requirement f)
+		Double currentOriginalTotal = cart.getOriginalTotalPrice() != null ? cart.getOriginalTotalPrice() : 0.0;
+		cart.setOriginalTotalPrice(currentOriginalTotal + (product.getPrice() * quantity));
+		
+		// Recalculate if promo code is applied
+		recalculateCartDiscount(cart);
 
 		CartDTO cartDTO = modelMapper.map(cart, CartDTO.class);
 
@@ -180,7 +188,13 @@ public class CartServiceImpl implements CartService {
 			throw new APIException("Product " + product.getProductName() + " not available in the cart!!!");
 		}
 
+		// Update totalPrice (with product discount)
 		double cartPrice = cart.getTotalPrice() - (cartItem.getProductPrice() * cartItem.getQuantity());
+
+		// Update originalTotalPrice (without product discount) - requirement f
+		Double currentOriginalTotal = cart.getOriginalTotalPrice() != null ? cart.getOriginalTotalPrice() : 0.0;
+		Double originalPrice = currentOriginalTotal - (product.getPrice() * cartItem.getQuantity());
+		cart.setOriginalTotalPrice(originalPrice + (product.getPrice() * quantity));
 
 		product.setQuantity(product.getQuantity() + cartItem.getQuantity() - quantity);
 
@@ -191,6 +205,9 @@ public class CartServiceImpl implements CartService {
 		cart.setTotalPrice(cartPrice + (cartItem.getProductPrice() * quantity));
 
 		cartItem = cartItemRepo.save(cartItem);
+
+		// Recalculate if promo code is applied
+		recalculateCartDiscount(cart);
 
 		CartDTO cartDTO = modelMapper.map(cart, CartDTO.class);
 
@@ -215,8 +232,12 @@ public class CartServiceImpl implements CartService {
 		}
 
 		cart.setTotalPrice(cart.getTotalPrice() - (cartItem.getProductPrice() * cartItem.getQuantity()));
-
+		
+		// Update originalTotalPrice (requirement f)
 		Product product = cartItem.getProduct();
+		Double currentOriginalTotal = cart.getOriginalTotalPrice() != null ? cart.getOriginalTotalPrice() : 0.0;
+		cart.setOriginalTotalPrice(currentOriginalTotal - (product.getPrice() * cartItem.getQuantity()));
+
 		product.setQuantity(product.getQuantity() + cartItem.getQuantity());
 
 		cartItemRepo.deleteCartItemByProductIdAndCartId(cartId, productId);
@@ -227,22 +248,34 @@ public class CartServiceImpl implements CartService {
 		return "Product " + cartItem.getProduct().getProductName() + " removed from the cart !!!";
 	}
 
+	/**
+	 * Apply promo code to cart.
+	 * 
+	 * Requirement (f): When promo code is applied, product discount is NOT counted.
+	 * Uses originalTotalPrice (without product discount) for calculation.
+	 */
 	@Override
 	public CartDTO applyPromoCode(Long cartId, String promoCode) {
 		Cart cart = cartRepo.findById(cartId)
 				.orElseThrow(() -> new ResourceNotFoundException("Cart", "cartId", cartId));
 
-		// Validate the promo code
-		promoCodeService.validatePromoCode(promoCode, cart.getTotalPrice());
+		// Use originalTotalPrice for validation and calculation (requirement f)
+		Double baseAmount = cart.getOriginalTotalPrice() != null && cart.getOriginalTotalPrice() > 0 
+				? cart.getOriginalTotalPrice() 
+				: cart.getTotalPrice();
+
+		// Validate the promo code against original price
+		promoCodeService.validatePromoCode(promoCode, baseAmount);
 
 		PromoCode promo = promoCodeRepo.findByCode(promoCode)
 				.orElseThrow(() -> new APIException("Invalid promo code: " + promoCode));
 
-		// Apply the promo code
+		// Apply the promo code (requirement f: use original price, not specialPrice)
 		cart.setAppliedPromoCode(promo);
-		Double discountAmount = promoCodeService.calculateDiscount(promoCode, cart.getTotalPrice());
+		Double discountAmount = promoCodeService.calculateDiscount(promoCode, baseAmount);
 		cart.setDiscountAmount(discountAmount);
-		cart.setFinalPrice(cart.getTotalPrice() - discountAmount);
+		// Final price = original price - promo discount (product discount not counted per requirement f)
+		cart.setFinalPrice(baseAmount - discountAmount);
 
 		Cart savedCart = cartRepo.save(cart);
 
@@ -256,6 +289,7 @@ public class CartServiceImpl implements CartService {
 
 		cart.setAppliedPromoCode(null);
 		cart.setDiscountAmount(0.0);
+		// When promo removed, use totalPrice (with product discount) again
 		cart.setFinalPrice(cart.getTotalPrice());
 
 		Cart savedCart = cartRepo.save(cart);
@@ -263,13 +297,25 @@ public class CartServiceImpl implements CartService {
 		return mapCartToDTO(savedCart);
 	}
 
+	/**
+	 * Recalculate cart discount.
+	 * 
+	 * Requirement (f): When promo code is applied, product discount is NOT counted.
+	 * Uses originalTotalPrice for promo code calculation.
+	 */
 	private void recalculateCartDiscount(Cart cart) {
 		if (cart.getAppliedPromoCode() != null) {
 			try {
+				// Use originalTotalPrice for promo code calculation (requirement f)
+				Double baseAmount = cart.getOriginalTotalPrice() != null && cart.getOriginalTotalPrice() > 0 
+						? cart.getOriginalTotalPrice() 
+						: cart.getTotalPrice();
+				
 				Double discountAmount = promoCodeService.calculateDiscount(
-						cart.getAppliedPromoCode().getCode(), cart.getTotalPrice());
+						cart.getAppliedPromoCode().getCode(), baseAmount);
 				cart.setDiscountAmount(discountAmount);
-				cart.setFinalPrice(cart.getTotalPrice() - discountAmount);
+				// Final price = original price - promo discount
+				cart.setFinalPrice(baseAmount - discountAmount);
 			} catch (APIException e) {
 				// If promo code is no longer valid, remove it
 				cart.setAppliedPromoCode(null);
@@ -277,6 +323,7 @@ public class CartServiceImpl implements CartService {
 				cart.setFinalPrice(cart.getTotalPrice());
 			}
 		} else {
+			// No promo code, use totalPrice (with product discount)
 			cart.setFinalPrice(cart.getTotalPrice());
 		}
 		cartRepo.save(cart);
@@ -294,6 +341,7 @@ public class CartServiceImpl implements CartService {
 			cartDTO.setAppliedPromoCode(cart.getAppliedPromoCode().getCode());
 		}
 		
+		cartDTO.setOriginalTotalPrice(cart.getOriginalTotalPrice() != null ? cart.getOriginalTotalPrice() : 0.0);
 		cartDTO.setDiscountAmount(cart.getDiscountAmount() != null ? cart.getDiscountAmount() : 0.0);
 		cartDTO.setFinalPrice(cart.getFinalPrice() != null ? cart.getFinalPrice() : cart.getTotalPrice());
 		

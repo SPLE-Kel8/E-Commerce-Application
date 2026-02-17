@@ -17,6 +17,12 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+/**
+ * Cart entity - shopping cart for user.
+ * 
+ * Requirement (f): When promo code is applied, product discount is NOT counted.
+ * Uses originalTotalPrice for promo code calculation.
+ */
 @Entity
 @Data
 @Table(name = "carts")
@@ -35,7 +41,11 @@ public class Cart {
 	@OneToMany(mappedBy = "cart", cascade = { CascadeType.PERSIST, CascadeType.MERGE }, orphanRemoval = true)
 	private List<CartItem> cartItems = new ArrayList<>();
 
+	/** Total price using product's specialPrice (with product discount) */
 	private Double totalPrice = 0.0;
+	
+	/** Total price using original product price (without product discount) - for promo code calculation (f) */
+	private Double originalTotalPrice = 0.0;
 
 	@ManyToOne
 	@JoinColumn(name = "promo_code_id")

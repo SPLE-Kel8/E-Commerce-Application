@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.app.config.AppConstants;
 import com.app.config.FeatureConfig;
 import com.app.exceptions.APIException;
+import com.app.payloads.BankAccountDTO;
 import com.app.payloads.OrderDTO;
 import com.app.payloads.OrderResponse;
 import com.app.services.OrderService;
@@ -27,7 +28,7 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
  * 
  * Clone-and-Own Notes:
  * - Payment methods are configured via FeatureConfig (application.properties)
- * - To add new payment methods, update FeatureConfig and application.properties
+ * - Bank transfer requires bank selection (Requirement d)
  */
 @RestController
 @RequestMapping("/api")
@@ -39,10 +40,63 @@ public class OrderController {
 	
 	@Autowired
 	private FeatureConfig featureConfig;
+
+	/**
+	 * Get list of supported banks for bank transfer (Requirement d).
+	 * Customer can select from this list when placing order.
+	 */
+	@GetMapping("/public/payments/banks")
+	public ResponseEntity<List<BankAccountDTO>> getSupportedBanks() {
+		if (!featureConfig.isBankTransferEnabled()) {
+			throw new APIException("Bank transfer payment is not enabled");
+		}
+		
+		List<BankAccountDTO> banks = featureConfig.getSupportedBankList();
+		
+		// Hide account numbers in public listing, show only on order confirmation
+		banks.forEach(bank -> {
+			bank.setAccountNumber(null);
+			bank.setAccountName(null);
+		});
+		
+		return new ResponseEntity<>(banks, HttpStatus.OK);
+	}
 	
 	/**
-	 * Place an order with payment method validation.
-	 * Currently supports: BANK_TRANSFER (configurable via application.properties)
+	 * Place an order with bank transfer payment (Requirement d).
+	 * Customer selects bank, system returns account number to transfer to.
+	 * 
+	 * @param email User email
+	 * @param cartId Cart ID
+	 * @param bankCode Bank code (e.g., BCA, BNI, MANDIRI)
+	 */
+	@PostMapping("/public/users/{email}/carts/{cartId}/payments/bank-transfer/{bankCode}/order")
+	public ResponseEntity<OrderDTO> orderWithBankTransfer(
+			@PathVariable String email, 
+			@PathVariable Long cartId, 
+			@PathVariable String bankCode) {
+		
+		// Validate bank transfer is enabled
+		if (!featureConfig.isBankTransferEnabled()) {
+			throw new APIException("Bank transfer payment is not enabled");
+		}
+		
+		// Validate bank code is supported (Requirement d)
+		if (!featureConfig.isBankSupported(bankCode)) {
+			throw new APIException(featureConfig.getSupportedBanksMessage());
+		}
+		
+		// Get bank account details
+		BankAccountDTO bankAccount = featureConfig.getBankAccount(bankCode);
+		
+		OrderDTO order = orderService.placeOrderWithBankTransfer(email, cartId, bankAccount);
+		
+		return new ResponseEntity<>(order, HttpStatus.CREATED);
+	}
+	
+	/**
+	 * Legacy endpoint - Place an order with payment method validation.
+	 * For bank transfer, use /bank-transfer/{bankCode}/order endpoint instead.
 	 */
 	@PostMapping("/public/users/{email}/carts/{cartId}/payments/{paymentMethod}/order")
 	public ResponseEntity<OrderDTO> orderProducts(
@@ -50,14 +104,20 @@ public class OrderController {
 			@PathVariable Long cartId, 
 			@PathVariable String paymentMethod) {
 		
-		// Validate payment method using FeatureConfig (Clone-and-Own configurable)
+		// Validate payment method using FeatureConfig
 		if (!featureConfig.isPaymentMethodEnabled(paymentMethod)) {
 			throw new APIException(featureConfig.getSupportedPaymentMethodsMessage());
 		}
 		
+		// For bank transfer, redirect to use specific endpoint
+		if ("BANK_TRANSFER".equalsIgnoreCase(paymentMethod)) {
+			throw new APIException("For bank transfer, please use /payments/bank-transfer/{bankCode}/order endpoint. " 
+				+ featureConfig.getSupportedBanksMessage());
+		}
+		
 		OrderDTO order = orderService.placeOrder(email, cartId, paymentMethod);
 		
-		return new ResponseEntity<OrderDTO>(order, HttpStatus.CREATED);
+		return new ResponseEntity<>(order, HttpStatus.CREATED);
 	}
 
 	@GetMapping("/admin/orders")

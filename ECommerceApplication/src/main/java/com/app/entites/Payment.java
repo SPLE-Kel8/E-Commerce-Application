@@ -13,6 +13,11 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+/**
+ * Payment entity - stores payment information for orders.
+ * 
+ * Requirement (d): For bank transfer, stores the selected bank code.
+ */
 @Entity
 @Data
 @Table(name = "payments")
@@ -30,5 +35,16 @@ public class Payment {
 	@NotBlank
 	@Size(min = 4, message = "Payment method must contain atleast 4 characters")
 	private String paymentMethod;
-
+	
+	/** Bank code for bank transfer payments (e.g., BCA, BNI, MANDIRI) - Requirement (d) */
+	private String bankCode;
+	
+	/** Bank name for reference */
+	private String bankName;
+	
+	/** Account number for the selected bank */
+	private String bankAccountNumber;
+	
+	/** Account name for the selected bank */
+	private String bankAccountName;
 }
