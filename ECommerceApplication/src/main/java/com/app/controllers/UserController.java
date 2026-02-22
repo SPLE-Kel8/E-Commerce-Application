@@ -15,10 +15,17 @@ import org.springframework.web.bind.annotation.RestController;
 import com.app.config.AppConstants;
 import com.app.payloads.UserDTO;
 import com.app.payloads.UserResponse;
+import com.app.security.AuthUtil;
 import com.app.services.UserService;
 
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 
+/**
+ * User Controller - manages user operations.
+ * 
+ * SECURITY: Users can only view/update their own profile.
+ * Admins can access any user's profile.
+ */
 @RestController
 @RequestMapping("/api")
 @SecurityRequirement(name = "E-Commerce Application")
@@ -26,6 +33,9 @@ public class UserController {
 	
 	@Autowired
 	private UserService userService;
+
+	@Autowired
+	private AuthUtil authUtil;
 	
 	@GetMapping("/admin/users")
 	public ResponseEntity<UserResponse> getUsers(
@@ -39,15 +49,25 @@ public class UserController {
 		return new ResponseEntity<UserResponse>(userResponse, HttpStatus.FOUND);
 	}
 	
+	/**
+	 * Get user by ID
+	 * SECURITY: Users can only view their own profile. Admins can view any.
+	 */
 	@GetMapping("/public/users/{userId}")
 	public ResponseEntity<UserDTO> getUser(@PathVariable Long userId) {
+		authUtil.validateUserAccess(userId);
 		UserDTO user = userService.getUserById(userId);
 		
 		return new ResponseEntity<UserDTO>(user, HttpStatus.FOUND);
 	}
 	
+	/**
+	 * Update user by ID
+	 * SECURITY: Users can only update their own profile. Admins can update any.
+	 */
 	@PutMapping("/public/users/{userId}")
 	public ResponseEntity<UserDTO> updateUser(@RequestBody UserDTO userDTO, @PathVariable Long userId) {
+		authUtil.validateUserAccess(userId);
 		UserDTO updatedUser = userService.updateUser(userId, userDTO);
 		
 		return new ResponseEntity<UserDTO>(updatedUser, HttpStatus.OK);

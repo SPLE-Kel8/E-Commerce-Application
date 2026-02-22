@@ -23,6 +23,7 @@ import com.app.config.FeatureConfig;
 import com.app.exceptions.APIException;
 import com.app.payloads.CartDTO;
 import com.app.payloads.ProductDTO;
+import com.app.security.AuthUtil;
 import com.app.services.CartService;
 
 /**
@@ -41,6 +42,9 @@ class CartControllerTest {
 
     @Mock
     private FeatureConfig featureConfig;
+
+    @Mock
+    private AuthUtil authUtil;
 
     @InjectMocks
     private CartController cartController;

@@ -19,12 +19,16 @@ import com.app.exceptions.APIException;
 import com.app.payloads.BankAccountDTO;
 import com.app.payloads.OrderDTO;
 import com.app.payloads.OrderResponse;
+import com.app.security.AuthUtil;
 import com.app.services.OrderService;
 
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 
 /**
  * Order Controller - handles order placement and management.
+ * 
+ * SECURITY: All endpoints validate that the authenticated user can only access their own orders.
+ * Admins can access any order.
  * 
  * Clone-and-Own Notes:
  * - Payment methods are configured via FeatureConfig (application.properties)
@@ -40,6 +44,9 @@ public class OrderController {
 	
 	@Autowired
 	private FeatureConfig featureConfig;
+
+	@Autowired
+	private AuthUtil authUtil;
 
 	/**
 	 * Get list of supported banks for bank transfer (Requirement d).
@@ -65,6 +72,7 @@ public class OrderController {
 	/**
 	 * Place an order with bank transfer payment (Requirement d).
 	 * Customer selects bank, system returns account number to transfer to.
+	 * SECURITY: Users can only place orders for themselves.
 	 * 
 	 * @param email User email
 	 * @param cartId Cart ID
@@ -75,6 +83,10 @@ public class OrderController {
 			@PathVariable String email, 
 			@PathVariable Long cartId, 
 			@PathVariable String bankCode) {
+		
+		// SECURITY: Validate user can only place orders for themselves
+		authUtil.validateUserAccess(email);
+		authUtil.validateCartAccess(cartId);
 		
 		// Validate bank transfer is enabled
 		if (!featureConfig.isBankTransferEnabled()) {
@@ -96,6 +108,7 @@ public class OrderController {
 	
 	/**
 	 * Legacy endpoint - Place an order with payment method validation.
+	 * SECURITY: Users can only place orders for themselves.
 	 * For bank transfer, use /bank-transfer/{bankCode}/order endpoint instead.
 	 */
 	@PostMapping("/public/users/{email}/carts/{cartId}/payments/{paymentMethod}/order")
@@ -103,6 +116,10 @@ public class OrderController {
 			@PathVariable String email, 
 			@PathVariable Long cartId, 
 			@PathVariable String paymentMethod) {
+		
+		// SECURITY: Validate user can only place orders for themselves
+		authUtil.validateUserAccess(email);
+		authUtil.validateCartAccess(cartId);
 		
 		// Validate payment method using FeatureConfig
 		if (!featureConfig.isPaymentMethodEnabled(paymentMethod)) {
@@ -132,15 +149,25 @@ public class OrderController {
 		return new ResponseEntity<OrderResponse>(orderResponse, HttpStatus.FOUND);
 	}
 	
+	/**
+	 * Get orders by user
+	 * SECURITY: Users can only view their own orders.
+	 */
 	@GetMapping("public/users/{email}/orders")
 	public ResponseEntity<List<OrderDTO>> getOrdersByUser(@PathVariable String email) {
+		authUtil.validateUserAccess(email);
 		List<OrderDTO> orders = orderService.getOrdersByUser(email);
 		
 		return new ResponseEntity<List<OrderDTO>>(orders, HttpStatus.FOUND);
 	}
 	
+	/**
+	 * Get specific order by user
+	 * SECURITY: Users can only view their own orders.
+	 */
 	@GetMapping("public/users/{email}/orders/{orderId}")
 	public ResponseEntity<OrderDTO> getOrderByUser(@PathVariable String email, @PathVariable Long orderId) {
+		authUtil.validateUserAccess(email);
 		OrderDTO order = orderService.getOrder(email, orderId);
 		
 		return new ResponseEntity<OrderDTO>(order, HttpStatus.FOUND);

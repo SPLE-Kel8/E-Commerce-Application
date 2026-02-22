@@ -27,6 +27,7 @@ import com.app.payloads.BankAccountDTO;
 import com.app.payloads.OrderDTO;
 import com.app.payloads.OrderResponse;
 import com.app.payloads.PaymentDTO;
+import com.app.security.AuthUtil;
 import com.app.services.OrderService;
 
 /**
@@ -46,6 +47,9 @@ class OrderControllerTest {
 
     @Mock
     private FeatureConfig featureConfig;
+
+    @Mock
+    private AuthUtil authUtil;
 
     @InjectMocks
     private OrderController orderController;

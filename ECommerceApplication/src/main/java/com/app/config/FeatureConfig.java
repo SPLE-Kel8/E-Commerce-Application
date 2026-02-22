@@ -44,6 +44,13 @@ public class FeatureConfig {
     @Value("${app.feature.product-discount.enabled:true}")
     private boolean productDiscountEnabled;
 
+    // ==================== WISHLIST FEATURE ====================
+    @Value("${app.feature.wishlist.enabled:true}")
+    private boolean wishlistEnabled;
+
+    @Value("${app.feature.wishlist.max-items:50}")
+    private int wishlistMaxItems;
+
     // ==================== BANK TRANSFER CONFIG (Requirement d) ====================
     @Value("${app.payment.bank-transfer.supported-banks:}")
     private String supportedBanksConfig;
