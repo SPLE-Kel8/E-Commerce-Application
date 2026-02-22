@@ -68,6 +68,9 @@ public class OrderServiceImpl implements OrderService {
 	public CartService cartService;
 
 	@Autowired
+	private PromoCodeUsageHistoryService promoCodeUsageHistoryService;
+
+	@Autowired
 	public ModelMapper modelMapper;
 
 	@Override
@@ -228,6 +231,24 @@ public class OrderServiceImpl implements OrderService {
 		if (cart.getAppliedPromoCode() != null) {
 			cart.getAppliedPromoCode().setUsedCount(cart.getAppliedPromoCode().getUsedCount() + 1);
 			promoCodeRepo.save(cart.getAppliedPromoCode());
+			
+			// Record promo code usage history
+			com.app.entites.User user = userRepo.findByEmail(email)
+					.orElseThrow(() -> new ResourceNotFoundException("User", "email", email));
+			
+			com.app.entites.PromoCodeUsageHistory history = new com.app.entites.PromoCodeUsageHistory();
+			history.setUser(user);
+			history.setPromoCode(cart.getAppliedPromoCode());
+			history.setOrder(savedOrder);
+			history.setPromoCodeUsed(cart.getAppliedPromoCode().getCode());
+			history.setDiscountAmount(cart.getDiscountAmount() != null ? cart.getDiscountAmount() : 0.0);
+			history.setOrderAmount(cart.getTotalPrice());
+			history.setFinalAmount(finalAmount);
+			history.setUsedAt(java.time.LocalDateTime.now());
+			history.setStatus("APPLIED");
+			
+			promoCodeUsageHistoryService.recordPromoCodeUsage(
+				modelMapper.map(history, com.app.payloads.PromoCodeUsageHistoryDTO.class));
 		}
 
 		cart.getCartItems().forEach(item -> {
