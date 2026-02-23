@@ -5,6 +5,7 @@
 .vscode/
 *.swp
 *.swo
+.env
 
 # Maven build output
 target/

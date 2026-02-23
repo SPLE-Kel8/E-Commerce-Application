@@ -1,6 +1,7 @@
 package com.app.controllers;
 
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.Map;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -50,8 +51,11 @@ public class AuthController {
 
 		String token = jwtUtil.generateToken(userDTO.getEmail());
 
-		return new ResponseEntity<Map<String, Object>>(Collections.singletonMap("jwt-token", token),
-				HttpStatus.CREATED);
+		Map<String, Object> response = new HashMap<>();
+		response.put("jwt-token", token);
+		response.put("cartId", userDTO.getCart().getCartId());
+
+		return new ResponseEntity<Map<String, Object>>(response, HttpStatus.CREATED);
 	}
 
 	@PostMapping("/login")
