@@ -8,4 +8,6 @@ import com.app.entites.OrderItem;
 @Repository
 public interface OrderItemRepo extends JpaRepository<OrderItem, Long> {
 
+	boolean existsByOrderEmailAndProductProductId(String email, Long productId);
+
 }

@@ -53,6 +53,21 @@ public class ProductServiceImpl implements ProductService {
 	@Value("${project.image}")
 	private String path;
 
+	private ProductDTO mapProductToDTO(Product product) {
+		ProductDTO productDTO = modelMapper.map(product, ProductDTO.class);
+
+		long reviewCount = product.getReviews() == null ? 0L : product.getReviews().size();
+		double averageRating = 0.0;
+
+		if (reviewCount > 0) {
+			averageRating = product.getReviews().stream().mapToInt(review -> review.getRating()).average().orElse(0.0);
+		}
+
+		productDTO.setReviewCount(reviewCount);
+		productDTO.setAverageRating(averageRating);
+		return productDTO;
+	}
+
 	@Override
 	public ProductDTO addProduct(Long categoryId, Product product) {
 
@@ -82,7 +97,7 @@ public class ProductServiceImpl implements ProductService {
 
 			Product savedProduct = productRepo.save(product);
 
-			return modelMapper.map(savedProduct, ProductDTO.class);
+			return mapProductToDTO(savedProduct);
 		} else {
 			throw new APIException("Product already exists !!!");
 		}
@@ -100,7 +115,7 @@ public class ProductServiceImpl implements ProductService {
 
 		List<Product> products = pageProducts.getContent();
 
-		List<ProductDTO> productDTOs = products.stream().map(product -> modelMapper.map(product, ProductDTO.class))
+		List<ProductDTO> productDTOs = products.stream().map(this::mapProductToDTO)
 				.collect(Collectors.toList());
 
 		ProductResponse productResponse = new ProductResponse();
@@ -135,7 +150,7 @@ public class ProductServiceImpl implements ProductService {
 			throw new APIException(category.getCategoryName() + " category doesn't contain any products !!!");
 		}
 
-		List<ProductDTO> productDTOs = products.stream().map(p -> modelMapper.map(p, ProductDTO.class))
+		List<ProductDTO> productDTOs = products.stream().map(this::mapProductToDTO)
 				.collect(Collectors.toList());
 
 		ProductResponse productResponse = new ProductResponse();
@@ -165,7 +180,7 @@ public class ProductServiceImpl implements ProductService {
 			throw new APIException("Products not found with keyword: " + keyword);
 		}
 
-		List<ProductDTO> productDTOs = products.stream().map(p -> modelMapper.map(p, ProductDTO.class))
+		List<ProductDTO> productDTOs = products.stream().map(this::mapProductToDTO)
 				.collect(Collectors.toList());
 
 		ProductResponse productResponse = new ProductResponse();
@@ -214,7 +229,7 @@ public class ProductServiceImpl implements ProductService {
 
 		cartDTOs.forEach(cart -> cartService.updateProductInCarts(cart.getCartId(), productId));
 
-		return modelMapper.map(savedProduct, ProductDTO.class);
+		return mapProductToDTO(savedProduct);
 	}
 
 	@Override
@@ -232,7 +247,7 @@ public class ProductServiceImpl implements ProductService {
 		
 		Product updatedProduct = productRepo.save(productFromDB);
 		
-		return modelMapper.map(updatedProduct, ProductDTO.class);
+		return mapProductToDTO(updatedProduct);
 	}
 	
 	@Override
