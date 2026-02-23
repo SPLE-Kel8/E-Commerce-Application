@@ -26,9 +26,21 @@ public class PromoCodeUsageHistoryServiceImpl implements PromoCodeUsageHistorySe
 
 	@Override
 	public PromoCodeUsageHistoryDTO recordPromoCodeUsage(PromoCodeUsageHistoryDTO historyDTO) {
-		PromoCodeUsageHistory history = modelMapper.map(historyDTO, PromoCodeUsageHistory.class);
+		// Don't use modelMapper for DTO→Entity due to ambiguous property mappings
+		// Manually create entity from DTO instead
+		PromoCodeUsageHistory history = new PromoCodeUsageHistory();
+		history.setHistoryId(historyDTO.getHistoryId());
+		history.setPromoCodeUsed(historyDTO.getPromoCodeUsed());
+		history.setDiscountAmount(historyDTO.getDiscountAmount());
+		history.setOrderAmount(historyDTO.getOrderAmount());
+		history.setFinalAmount(historyDTO.getFinalAmount());
+		history.setUsedAt(historyDTO.getUsedAt());
+		history.setStatus(historyDTO.getStatus());
+		
+		// Note: User, PromoCode, and Order should be set in OrderServiceImpl before calling this
+		
 		PromoCodeUsageHistory savedHistory = historyRepo.save(history);
-		return modelMapper.map(savedHistory, PromoCodeUsageHistoryDTO.class);
+		return mapToDTO(savedHistory);
 	}
 
 	@Override

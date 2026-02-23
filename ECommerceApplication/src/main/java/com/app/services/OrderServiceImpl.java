@@ -71,6 +71,9 @@ public class OrderServiceImpl implements OrderService {
 	private PromoCodeUsageHistoryService promoCodeUsageHistoryService;
 
 	@Autowired
+	private com.app.repositories.PromoCodeUsageHistoryRepo promoCodeUsageHistoryRepo;
+
+	@Autowired
 	public ModelMapper modelMapper;
 
 	@Override
@@ -247,8 +250,8 @@ public class OrderServiceImpl implements OrderService {
 			history.setUsedAt(java.time.LocalDateTime.now());
 			history.setStatus("APPLIED");
 			
-			promoCodeUsageHistoryService.recordPromoCodeUsage(
-				modelMapper.map(history, com.app.payloads.PromoCodeUsageHistoryDTO.class));
+			// Save history directly to repository (avoid ModelMapper ambiguity)
+			promoCodeUsageHistoryRepo.save(history);
 		}
 
 		cart.getCartItems().forEach(item -> {
